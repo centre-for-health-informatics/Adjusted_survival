@@ -1,0 +1,357 @@
+*! program diradj version 2.0.0 – 03jan2000 – GvM
+
+*!
+
+*! usage: diradj varlist
+
+*!
+
+*! first var in varlist is <main> regressor (sought effect)
+
+*! followed by other regressors (that are to be adjusted for)
+
+*!
+
+*! data must be -stset- first; all regressors must be binary
+
+*!
+
+*! performs “direct adjustment” as described in Maruch (1981) in order to
+
+*! obtain better adjustment than via classical “mean subject” (see Ghali etal)
+
+*!
+
+*! computed as total probability= sum( Pr(T>t|pattern i) * Pr(pattern i) )
+
+*!
+
+*! where the survival probabilities are obtained via Cox regression
+
+*! and Pr(pattern i) is estimated as (N in i / total N)
+
+*! thus producing weighted averages suW0 (for main reg=no) and suW1 (yes)
+
+*!
+
+*! program also computes Crude survival: Cru0 and Cru1
+
+*! as well as “mean patient” adjustment: suM0 and suM1
+
+*!
+
+*! –> final dataset contains: _t (time) Cru0 Cru1 suM0 suM1 suW0 suW1
+
+*!
+
+prog def diradj
+
+*
+
+version 6.0
+
+ 
+
+st_is 2 analysis
+
+syntax varlist
+
+ 
+
+unab vL: `varlist’
+
+gettoken z vL:vL /* main regressor : e.g. Diab */
+
+loc regs `vL’ /* other regressors: e.g. creat CHF male */
+
+ 
+
+loc nreg: word count `regs’
+
+loc xreg=`nreg’+1
+
+ 
+
+tempname m A hrCru Bz Bm hr
+
+qui {
+
+* —- patterns
+
+ 
+
+sca npat= 2^`nreg’ /* possible number of patterns */
+
+g np=0
+
+loc j 0
+
+sca `m’=2^`nreg’
+
+while `j'<`nreg’ {
+
+sca `m’= int(`m’/2+.01)
+
+loc j=`j’+1
+
+loc x: word `j’ of `regs’
+
+qui replace np= np+`m’ if `x’
+
+}
+
+mat `A’=J(npat,1,0) /* will contain the Ni’s */
+
+loc NN 0
+
+loc p 0
+
+while `p'<npat {
+
+count if np==`p’ & _st
+
+loc NN=`NN’+r(N)
+
+loc p =`p’+1
+
+mat `A'[`p’,1]=r(N)
+
+}
+
+* —- cox reg
+
+ 
+
+stcox `z’ , basesurv(Cru0) /* Cru0= crude baseline surv */
+
+sca `hrCru’=exp(_b[`z’])
+
+ 
+
+stcox `z’ `regs’ , basesurv(s0) /* s0= full reg baseline surv */
+
+sca `Bz’=_b[`z’]
+
+sca `Bm’= 0
+
+ 
+
+* — adjust: mean patient –> haz h(t)= h0(t) * exp(Xbar’Beta)
+
+loc j 0
+
+while `j'<`nreg’ {
+
+loc j=`j’+1
+
+loc x: word `j’ of `regs’
+
+su `x’ if _st, meanonly
+
+sca `Bm’=`Bm’ + _b[`x’]*r(mean)
+
+}
+
+sort _t
+
+qui {
+
+by _t: keep if _n==_N
+
+keep _t Cru0 s0
+
+g double Cru1= Cru0^`hrCru’
+
+g double suM0= s0^exp(`Bm’)
+
+g double suM1= s0^exp(`Bm’+`Bz’)
+
+order _t C* su*
+
+g double suW0=0
+
+g double suW1=0
+
+}
+
+* — adjust: = direct adjustment
+
+loc p 1
+
+while `p'<=npat {
+
+if `A'[`p’,1] { /* some patterns may be empty */
+
+loc j =`nreg’
+
+sca `hr’=0
+
+loc i=`p’-1
+
+while `i’ {
+
+loc x: word `j’ of `regs’
+
+sca `hr’=`hr’+ mod(`i’,2)*_b[`x’]
+
+loc j=`j’-1
+
+loc i= int(`i’/2+.01)
+
+}
+
+replace suW0= suW0+`A'[`p’,1] * s0^exp(`hr’)
+
+replace suW1= suW1+`A'[`p’,1] * s0^exp(`hr’+`Bz’)
+
+}
+
+loc p=`p’+1
+
+}
+
+drop s0
+
+replace suW0= suW0/`NN’
+
+replace suW1= suW1/`NN’
+
+#delimit ;
+
+drop if Cru0==Cru0[_n-1] & suM0==suM0[_n-1] & suW0==suW0[_n-1]
+
+& Cru1==Cru1[_n-1] & suM1==suM1[_n-1] & suW1==suW1[_n-1]
+
+; #delimit cr
+
+}
+
+show
+
+ 
+
+end
+
+* ———–
+
+prog def show
+
+/*
+
+shows name of surv curve next to curve
+
+stata won’t do that alone so it must be programmed low-level
+
+instead of calling this <show> could just say
+
+ 
+
+gr su* C* _t, xla yla s(..oo..) c(llllll)
+
+ 
+
+to produce the 6 curves
+
+instead of that 1 line need 46 lines! to obtain same plus the name and axes
+
+*/
+
+loc su suM0 suM1 suW0 suW1 Cru0 Cru1
+
+loc wc: word count `su’
+
+tempvar x y
+
+qui g `x’=.
+
+qui g str8 `y’= “”
+
+loc grmin= 1
+
+loc j 0
+
+qui while `j'<`wc’ {
+
+loc j=`j’+1
+
+loc v: word `j’ of `su’
+
+loc va=`v'[_N]
+
+loc grmin= min(`grmin’,`va’)
+
+replace `x’= `va’ in `j’
+
+replace `y’=”`v'” in `j’
+
+}
+
+loc grmin=int(50*`grmin’)/50
+
+loc a `su’ _t, s(..dd..) c(llllll) xla yla(`grmin'(.02)1) t1(” “)
+
+ 
+
+sort `x’
+
+tempname X
+
+mkmat `x’ in 1/`wc’, mat(`X’)
+
+loc tx
+
+loc ht
+
+loc k=`wc’+1
+
+while `k’>1 {
+
+loc k= `k’-1
+
+loc u= `x'[`k’]
+
+loc ht “`ht’ `u'”
+
+loc u= `y'[`k’]
+
+loc tx “`tx’ `u'”
+
+}
+
+sort _t
+
+loc bb bbox(0,0,23000,28900,700,300,0)
+
+gr `a’ `bb’ border
+
+gph open
+
+gr
+
+gph pen 1
+
+loc k 0
+
+while `k'<`wc’ {
+
+loc k=`k’+1
+
+loc w: word `k’ of `tx’
+
+loc h: word `k’ of `ht’
+
+loc h=18000*(1-`h’)/(1-`grmin’)+2200
+
+gph text `h’ 29000 0 -1 `w’
+
+}
+
+gph close
+
+graph, saving(adj.gph)
+
+end
+
+*
+
+exit

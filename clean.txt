@@ -1,0 +1,25 @@
+rename fcreat creat
+
+rename fchf CHF
+
+rename fdiab Diab
+
+rename cathtime cathTime
+
+loc tim cathTime
+
+loc dth death
+
+quietly {
+
+gen byte death= 1-censored
+
+su `tim’ if `tim’>0
+
+loc z=r(min)/2
+
+replace `tim’=`z’ if `tim’==0
+
+}
+
+noisily stset `tim’, fail(`dth’)
