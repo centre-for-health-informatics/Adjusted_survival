@@ -37,4 +37,6 @@ Survival SAS program
 
 The programs and sample dataset should be easy to use for individuals who are familiar with SAS programming. The programs can easily be modified for use with other datasets. We have provided comment statements with the SAS programs which should facilitate the modification of the programs for use with other data.
 
-See alse STATA, S-Plus and R versions of the above programs
+See alse STATA and R versions of the above programs
+
+S-Plus can be found here: https://www.stat.ubc.ca/~rollin/stats/S/surv.html
