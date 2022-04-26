@@ -29,3 +29,12 @@ Below are four computer files which can be saved to your PC to experiment with t
 
 Data set SAS program
 “sample.sas” – a SAS program which creates a SAS data file for use as an example dataset to which the following SAS programs can be applied. The dataset contains 5,000 observations
+
+Survival SAS program
+1. “mean.sas” – a SAS program which calculates and plots unadjusted and adjusted survival curves. The adjusted curves are calculated using the Mean of Covariates Method.
+
+2. “weight.sas” – a SAS program which calculates and plots unadjusted and adjusted survival curves. The adjusted curves are calculated using the Corrected Group Prognosis Method.
+
+The programs and sample dataset should be easy to use for individuals who are familiar with SAS programming. The programs can easily be modified for use with other datasets. We have provided comment statements with the SAS programs which should facilitate the modification of the programs for use with other data.
+
+See alse STATA, S-Plus and R versions of the above programs
